@@ -1,177 +1,177 @@
-module macgeddon_wifi
+// src/wifi.k — interface discovery, current-network readout and the
+// honest verdict on monitor mode / injection for this radio.
+//
+// macOS hands userland no way to put a Wi-Fi radio into monitor mode or to
+// inject 802.11 frames. On Apple Silicon that is unconditional: `airport`
+// was removed in 14.4, wdutil only reports link state, and the driver has
+// no monitor/injection ioctl path. macgeddon therefore reports the truth
+// per interface instead of pretending a capture is running.
 
-// All radio access is through the public CoreWLAN framework. Native handles
-// remain pointers throughout; converting them to text loses their ABI type.
-func loadFramework(name) {
-    let path = "/System/Library/Frameworks/" + name + ".framework"
-    let bundle = msg_1(cls("NSBundle"), "bundleWithPath:", nsString(path))
-    emit msg(bundle, "load")
-}
+module wifi
 
-func wifiClient() {
-    if loadFramework("CoreWLAN") == 0 {
-        printErr("macgeddon: CoreWLAN could not be loaded.")
-        exit(3)
-    }
-    emit msg(cls("CWWiFiClient"), "sharedWiFiClient")
-}
+// ── interfaces ────────────────────────────────────────────────────────
 
-func dictNew() { emit msg(cls("NSMutableDictionary"), "dictionary") }
-func arrayNew() { emit msg(cls("NSMutableArray"), "array") }
-func put(dict, key, value) { msg_2(dict, "setObject:forKey:", value, nsString(key)) }
-func putText(dict, key, value) { put(dict, key, nsString(value)) }
-func putNumber(dict, key, value) { put(dict, key, msg_1(cls("NSNumber"), "numberWithInteger:", value)) }
-func putBool(dict, key, value) { put(dict, key, msg_1(cls("NSNumber"), "numberWithBool:", value)) }
-func add(array, value) { msg_1(array, "addObject:", value) }
-func get(dict, key) { emit msg_1(dict, "objectForKey:", nsString(key)) }
-
-func jsonText(object) {
-    let data = msg_3(cls("NSJSONSerialization"), "dataWithJSONObject:options:error:", object, 3, 0)
-    if data == 0 {
-        printErr("macgeddon: JSON serialization failed.")
-        exit(3)
-    }
-    let text = msg_2(msg(cls("NSString"), "alloc"), "initWithData:encoding:", data, 4)
-    msg(text, "autorelease")
-    emit nsToStr(text)
-}
-
-func putOptionalText(dict, key, object) {
-    if object == 0 { put(dict, key, msg(cls("NSNull"), "null")) }
-    else { put(dict, key, object) }
-}
-
-func selectedInterface(client, name) {
-    let interfaces = msg(client, "interfaces")
-    let i = 0
-    while i < msg(interfaces, "count") {
-        let iface = msg_1(interfaces, "objectAtIndex:", i)
-        if name == "" || nsToStr(msg(iface, "interfaceName")) == name { emit iface }
-        i += 1
-    }
-    if name == "" { printErr("macgeddon: No Wi-Fi interfaces available. Check hardware and system permissions.") }
-    else { printErr("macgeddon: Wi-Fi interface not found: " + terminalText(name)) }
-    exit(3)
-}
-
-func channelRecord(channel) {
-    if channel == 0 { emit msg(cls("NSNull"), "null") }
-    let row = dictNew()
-    putNumber(row, "number", msg(channel, "channelNumber"))
-    putText(row, "band", bandLabel(msg(channel, "channelBand")))
-    // CoreWLAN enum: 0=unknown, 1=20, 2=40, 3=80, 4=160 MHz.
-    putNumber(row, "width_enum", msg(channel, "channelWidth"))
-    emit row
-}
-
-func interfaceRecord(iface) {
-    let row = dictNew()
-    putOptionalText(row, "name", msg(iface, "interfaceName"))
-    putBool(row, "power_on", msg(iface, "powerOn"))
-    putOptionalText(row, "ssid", msg(iface, "ssid"))
-    putOptionalText(row, "bssid", msg(iface, "bssid"))
-    putOptionalText(row, "country", msg(iface, "countryCode"))
-    put(row, "channel", channelRecord(msg(iface, "wlanChannel")))
-    putNumber(row, "rssi_dbm", msg(iface, "rssiValue"))
-    putNumber(row, "noise_dbm", msg(iface, "noiseMeasurement"))
-    putText(row, "security", securityLabel(msg(iface, "security")))
-    emit row
-}
-
-func interfaceRecords(client) {
-    let result = arrayNew()
-    let interfaces = msg(client, "interfaces")
-    let i = 0
-    while i < msg(interfaces, "count") {
-        add(result, interfaceRecord(msg_1(interfaces, "objectAtIndex:", i)))
-        i += 1
-    }
-    emit result
-}
-
-func networkRecord(network) {
-    let row = dictNew()
-    putOptionalText(row, "ssid", msg(network, "ssid"))
-    putOptionalText(row, "bssid", msg(network, "bssid"))
-    putOptionalText(row, "country", msg(network, "countryCode"))
-    put(row, "channel", channelRecord(msg(network, "wlanChannel")))
-    putNumber(row, "rssi_dbm", msg(network, "rssiValue"))
-    putNumber(row, "noise_dbm", msg(network, "noiseMeasurement"))
-    let security = arrayNew()
-    let findings = arrayNew()
-    let code = 0
-    while code <= 15 {
-        // 5 and 10 are aggregate query types, not individual security modes.
-        if code != 5 && code != 10 {
-            if msg_1(network, "supportsSecurity:", code) != 0 {
-                add(security, nsString(securityLabel(code)))
-                let finding = securityFinding(code)
-                if finding != "" && msg_1(findings, "containsObject:", nsString(finding)) == 0 {
-                    add(findings, nsString(finding))
-                }
+// hardwarePorts(): Iface records from `networksetup`:
+//   Hardware Port: Wi-Fi
+//   Device: en0
+//   Ethernet Address: 68:5e:dd:81:79:18
+func hardwarePorts() {
+    let text = exec("networksetup -listallhardwareports 2>/dev/null")
+    let out = ""
+    let port = ""
+    let dev = ""
+    for l in textLines(text) {
+        if startsWith(l, "Hardware Port:") {
+            port = trimWS(substring(l, 14, len(l)))
+            dev = ""
+        }
+        if startsWith(l, "Device:") {
+            dev = trimWS(substring(l, 7, len(l)))
+        }
+        if startsWith(l, "Ethernet Address:") {
+            let mac = trimWS(substring(l, 17, len(l)))
+            if dev != "" {
+                out = lstAdd(out, rec(cleanField(dev) + "," + cleanField(port) + "," + cleanField(mac)))
             }
+            port = ""
+            dev = ""
         }
-        code += 1
     }
-    put(row, "security", security)
-    put(row, "findings", findings)
-    emit row
+    emit out
 }
 
-func scanRecords(iface) {
-    if msg(iface, "powerOn") == 0 {
-        printErr("macgeddon: Wi-Fi is off. Enable Wi-Fi in System Settings.")
-        exit(3)
+func ifaceName(r) { emit recField(r, 0) }
+func ifacePort(r) { emit recField(r, 1) }
+func ifaceMac(r)  { emit recField(r, 2) }
+
+func ifaceRec(dev) {
+    for r in hardwarePorts() {
+        if ifaceName(r) == dev { emit r }
     }
-    // NSPointerArray provides a real NSError** without relying on unsafe
-    // integer/pointer conversions in the Krypton buffer API.
-    let errors = msg(cls("NSPointerArray"), "weakObjectsPointerArray")
-    msg_1(errors, "addPointer:", 0)
-    // A plain 8-byte buffer is the documented foreign-call writable pointer.
-    let errorStorage = bufNew(8)
-    bufSetQwordAt(errorStorage, 0, 0)
-    let networks = msg_2(iface, "scanForNetworksWithName:error:", 0, errorStorage)
-    if networks == 0 {
-        printErr("macgeddon: Scan failed. Enable Location Services, authorize the launching app, and check Wi-Fi.")
-        exit(3)
-    }
-    let result = arrayNew()
-    let items = msg(networks, "allObjects")
-    let sorter = msg_2(cls("NSSortDescriptor"), "sortDescriptorWithKey:ascending:", nsString("rssiValue"), 0)
-    let sorters = arrayNew()
-    add(sorters, sorter)
-    items = msg_1(items, "sortedArrayUsingDescriptors:", sorters)
-    let i = 0
-    while i < msg(items, "count") {
-        add(result, networkRecord(msg_1(items, "objectAtIndex:", i)))
-        i += 1
-    }
-    emit result
+    emit rec(cleanField(dev) + ",unknown,")
 }
 
-func channelCounts(networks) {
-    let counts = dictNew()
-    let i = 0
-    while i < msg(networks, "count") {
-        let row = msg_1(networks, "objectAtIndex:", i)
-        let channel = get(row, "channel")
-        if channel != msg(cls("NSNull"), "null") {
-            let key = nsToStr(get(channel, "band")) + " / " + nsToStr(get(channel, "number"))
-            let old = get(counts, key)
-            putNumber(counts, key, msg(old, "integerValue") + 1)
-        }
-        i += 1
+// wifiIface(): device name of the Wi-Fi port, "" when there is none.
+func wifiIface() {
+    for r in hardwarePorts() {
+        if ifacePort(r) == "Wi-Fi" { emit ifaceName(r) }
     }
-    emit counts
+    emit ""
 }
 
-func supportedChannels(iface) {
-    let result = arrayNew()
-    let channels = msg(msg(iface, "supportedWLANChannels"), "allObjects")
-    let i = 0
-    while i < msg(channels, "count") {
-        add(result, channelRecord(msg_1(channels, "objectAtIndex:", i)))
-        i += 1
+func allIfaces() { emit chomp(exec("ifconfig -l 2>/dev/null")) }
+
+func ifaceActive(dev) {
+    let s = chomp(exec("ifconfig " + dev + " 2>/dev/null | grep -c 'status: active'"))
+    if s == "0" { emit "0" }
+    emit "1"
+}
+
+func ifaceIP(dev) { emit chomp(exec("ipconfig getifaddr " + dev + " 2>/dev/null")) }
+
+// ── current network ───────────────────────────────────────────────────
+
+func currentNetwork(dev) {
+    let s = chomp(exec("networksetup -getairportnetwork " + dev + " 2>/dev/null"))
+    if startsWith(s, "Current Wi-Fi Network:") {
+        emit trimWS(substring(s, 24, len(s)))
     }
-    emit result
+    emit ""
+}
+
+// profiler(): raw `system_profiler SPAirPortDataType` — the only
+// unprivileged, documented source of SSID/channel/RSSI/security on macOS.
+func profiler(dev) {
+    emit exec("system_profiler SPAirPortDataType 2>/dev/null")
+}
+
+func currentAP(dev) {
+    let aps = parseProfiler(profiler(dev))
+    if lstCount(aps) == 0 { emit "" }
+    emit lstGet(aps, 0)
+}
+
+// ── monitor mode verdict ──────────────────────────────────────────────
+
+// monitorVerdict(): "state:reason".
+func monitorVerdict() {
+    let dev = wifiIface()
+    if dev == "" { emit "no:no Wi-Fi interface on this Mac" }
+    if isAppleSilicon() == "1" {
+        emit "no:Apple Silicon radio exposes no monitor mode (" + dev + ")"
+    }
+    if isRoot() == "0" { emit "partial:needs sudo to probe monitor support on " + dev }
+    emit "no:macOS exposes no monitor mode to userland (" + dev + ")"
+}
+
+func wifiRadioCap() {
+    let dev = wifiIface()
+    if dev == "" { emit capRec("Wi-Fi radio", "no", "no Wi-Fi hardware port") }
+    let v = monitorVerdict()
+    let state = "no"
+    if startsWith(v, "partial") { state = "partial" }
+    if startsWith(v, "yes") { state = "yes" }
+    let why = substring(v, indexOf(v, ":") + 1, len(v))
+    emit capRec("Wi-Fi " + dev + " (" + ifacePort(ifaceRec(dev)) + ")", state, why)
+}
+
+// ── status pages ──────────────────────────────────────────────────────
+
+// printInterfaces(): prints the port table, returns the Wi-Fi device.
+func printInterfaces() {
+    banner("interfaces", 78)
+    kp("")
+    for r in hardwarePorts() {
+        let mark = colorGray("[ -- ]")
+        if ifacePort(r) == "Wi-Fi" { mark = colorCyan("[wifi]") }
+        kp("  " + mark + " " + padR(ifaceName(r), 9) + padR(ifacePort(r), 24) + colorGray(ifaceMac(r)))
+    }
+    kp("")
+    let dev = wifiIface()
+    if dev == "" {
+        warn("no Wi-Fi interface — this Mac has no wireless hardware")
+        kp("")
+        emit ""
+    }
+    let ap = currentAP(dev)
+    if ap == "" {
+        info(dev + " is not associated with a network")
+    } else {
+        kp("  " + colorBold("current network"))
+        kp("")
+        kp("  " + apHeader())
+        kp("  " + apLine(apFromRec(ap)))
+        kp("")
+        kp("  " + colorGray(apNote(apFromRec(ap))))
+    }
+    kp("")
+    emit dev
+}
+
+func printRadioVerdict() {
+    let dev = wifiIface()
+    banner("radio capabilities", 78)
+    kp("")
+    if dev == "" {
+        bad("no Wi-Fi interface found")
+        kp("")
+        emit "0"
+    }
+    let v = monitorVerdict()
+    let why = substring(v, indexOf(v, ":") + 1, len(v))
+    kp("  " + colorBold("interface ") + dev + "   " + colorGray(chip()))
+    kp("")
+    capRender(capRec("monitor mode", "no", why))
+    capRender(capRec("frame injection", "no", "no userland 802.11 transmit path"))
+    capRender(capRec("associated readout", "yes", "system_profiler SPAirPortDataType"))
+    capRender(capRec("neighbour scan", "partial", "cached list from system_profiler; no scan command"))
+    kp("")
+    kp("  " + colorYellow("what still works on this host:"))
+    kp("    - associated-network recon: channel, band, RSSI, security")
+    kp("    - offline handshake/PMKID cracking (aircrack-ng / hashcat)")
+    kp("    - parsing scan and capture files produced on a Linux box")
+    kp("")
+    kp(colorDim("  see `macgeddon capture --explain` for the full story."))
+    kp("")
+    emit "0"
 }

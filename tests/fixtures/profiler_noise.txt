@@ -1,0 +1,16 @@
+Wi-Fi:
+
+      Software Versions:
+          CoreWLAN: 16.0 (1600.61)
+      Interfaces:
+        awdl0:
+          MAC Address: e2:e6:b2:40:0a:f8
+          Supported Channels: 1 (2GHz), 6 (2GHz), 36 (5GHz), 44 (5GHz)
+          Current Network Information:
+              Network Type: Infrastructure
+      Other Local Wi-Fi Networks:
+        Neighbour:
+          PHY Mode: 802.11ax
+          Channel: 44 (5GHz, 80MHz)
+          Security: WPA2 Personal
+          BSSID: 68:5e:dd:81:79:18

@@ -1,0 +1,9 @@
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+68:5E:DD:81:79:18, 2026-11-08 10:00:00, 2026-11-08 10:01:00, 44, 1300, WPA2, CCMP, PSK, -55, 120, 4, 0.0.0.0, 13, HarborNet-5G, 
+11:22:33:44:55:66, 2026-11-08 10:00:00, 2026-11-08 10:01:00, 6, 130, WPA2 WPA3, CCMP, PSK, -71, 40, 0, 0.0.0.0, 16, Cafe, Guest Free, 
+AA:BB:CC:DD:EE:FF, 2026-11-08 10:00:00, 2026-11-08 10:01:00, 11, 130, OPN, , , -84, 12, 0, 0.0.0.0, 9, OpenNet, 
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+68:5E:DD:81:79:18, 2026-11-08 10:00:10, 2026-11-08 10:00:20, -40, 12, 11:22:33:44:55:66, HarborNet

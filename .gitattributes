@@ -1,0 +1,3 @@
+*.k  text eol=lf linguist-language=Krypton
+*.ks text eol=lf linguist-language=Krypton
+*.sh text eol=lf

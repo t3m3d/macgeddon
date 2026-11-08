@@ -1,0 +1,4 @@
+                            SSID BSSID             RSSI CHANNEL HT CC SECURITY
+HarborNet-5G                68:5e:dd:81:79:18 -55  44,+1  Y  US WPA2(PSK/AES/AES)
+HarborNet                   11:22:33:44:55:66 -71  6       Y  US WPA2(PSK/AES/AES)
+Cafe-Guest                  aa:bb:cc:dd:ee:ff -84  1       N  -- NONE

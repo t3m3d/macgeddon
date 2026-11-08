@@ -1,0 +1,38 @@
+Wi-Fi:
+
+      Software Versions:
+          CoreWLAN: 16.0 (1600.61)
+          CoreWLANKit: 16.0 (1600.61)
+      Interfaces:
+        en0:
+          Card Type: Wi-Fi  (0x14E4, 0x4387)
+          Firmware Version: wl0: Jun 10 2026 21:14:03
+          MAC Address: 68:5e:dd:81:79:18
+          Locale: FCC
+          Country Code: US
+          Supported PHY Modes: 802.11 a/b/g/n/ac/ax
+          Supported Channels: 1 (2GHz), 6 (2GHz), 11 (2GHz), 36 (5GHz), 44 (5GHz)
+          Status: Connected
+          Current Network Information:
+            HarborNet-5G:
+              PHY Mode: 802.11ax
+              Channel: 44 (5GHz, 80MHz)
+              Country Code: US
+              Network Type: Infrastructure
+              Security: WPA2 Personal
+              Signal / Noise: -55 dBm / -92 dBm
+              Transmit Rate: 720
+              BSSID: 68:5e:dd:81:79:18
+          Other Local Wi-Fi Networks:
+            HarborNet:
+              PHY Mode: 802.11ac
+              Channel: 6 (2GHz, 20MHz)
+              Security: WPA2 Personal
+              Signal / Noise: -71 dBm / -90 dBm
+              BSSID: 11:22:33:44:55:66
+            Guest-Open:
+              PHY Mode: 802.11n
+              Channel: 11 (2GHz, 20MHz)
+              Security: None
+              Signal / Noise: -80 dBm / -92 dBm
+              BSSID: aa:bb:cc:dd:ee:ff
