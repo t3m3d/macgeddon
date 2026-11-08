@@ -53,12 +53,14 @@ func defaultWordlists() {
 }
 
 // brewHint: the exact command a user needs for a missing tool.
+// "system" (built in), "host" (Linux capture host only) and "?" (unknown)
+// are not brewable, so they are never echoed as install commands.
 func brewHint(names) {
     let out = ""
     for n in names {
         if haveTool(n) == "0" {
             let f = toolFormula(n)
-            if f != "system" { out = lstAdd(out, f) }
+            if f != "system" && f != "host" && f != "?" { out = lstAdd(out, f) }
         }
     }
     emit out
@@ -183,7 +185,7 @@ func doctor() {
     banner("tool doctor", 78)
     kp("")
     capsRender(toolCaps())
-    let missing = brewHint("aircrack-ng,hashcat,hcxpcapngtool")
+    let missing = brewHint("aircrack-ng,hashcat,hcxpcapngtool,tshark")
     kp("")
     if missing == "" {
         okRow("offline cracking toolchain complete")

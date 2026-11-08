@@ -33,13 +33,26 @@ func toolFormula(name) {
     if name == "aircrack-ng"     { emit "aircrack-ng" }
     if name == "hashcat"         { emit "hashcat" }
     if name == "hcxpcapngtool"   { emit "hcxtools" }
-    if name == "hcxdumptool"     { emit "hcxdumptool" }
+    if name == "hcxdumptool"     { emit "host" }
     if name == "tcpdump"         { emit "system" }
     if name == "wdutil"          { emit "system" }
     if name == "networksetup"    { emit "system" }
     if name == "system_profiler" { emit "system" }
     if name == "ssh"             { emit "system" }
     if name == "scp"             { emit "system" }
+    if name == "tshark"          { emit "wireshark" }
+    if name == "capinfos"        { emit "wireshark" }
+    if name == "editcap"         { emit "wireshark" }
+    if name == "mergecap"        { emit "wireshark" }
+    if name == "crunch"          { emit "crunch" }
+    if name == "tmux"            { emit "tmux" }
+    if name == "ettercap"        { emit "ettercap" }
+    if name == "reaver"          { emit "reaver" }
+    if name == "wash"            { emit "reaver" }
+    if name == "pixiewps"        { emit "pixiewps" }
+    if name == "dnsmasq"         { emit "dnsmasq" }
+    if name == "lighttpd"        { emit "lighttpd" }
+    if name == "macchanger"      { emit "macchanger" }
     emit "?"
 }
 
@@ -47,21 +60,37 @@ func toolLabel(name) {
     if name == "aircrack-ng"   { emit "aircrack-ng   offline WPA handshake crack" }
     if name == "hashcat"       { emit "hashcat       GPU crack (Metal on Apple Silicon)" }
     if name == "hcxpcapngtool" { emit "hcxpcapngtool pcap -> hashcat 22000 converter" }
-    if name == "hcxdumptool"   { emit "hcxdumptool   PMKID/handshake capture (Linux-centric)" }
+    if name == "hcxdumptool"   { emit "hcxdumptool   PMKID/handshake capture (Linux host)" }
     if name == "tcpdump"       { emit "tcpdump       packet capture (BPF)" }
     if name == "wdutil"        { emit "wdutil        Wi-Fi diagnostics" }
     if name == "networksetup"  { emit "networksetup  hardware port inventory" }
     if name == "system_profiler" { emit "system_profiler  attached-network readout" }
     if name == "ssh"           { emit "ssh           remote capture host transport" }
     if name == "scp"           { emit "scp           remote capture pull" }
+    if name == "tshark"        { emit "tshark        handshake validation" }
+    if name == "capinfos"      { emit "capinfos      capture file summary" }
+    if name == "editcap"       { emit "editcap       capture editing" }
+    if name == "mergecap"      { emit "mergecap      capture merging" }
+    if name == "crunch"        { emit "crunch        wordlist generation" }
+    if name == "tmux"          { emit "tmux          long-running capture sessions" }
+    if name == "ettercap"      { emit "ettercap      MITM / etterlog" }
+    if name == "reaver"        { emit "reaver        WPS PIN attack (needs monitor mode)" }
+    if name == "wash"          { emit "wash          WPS discovery (needs monitor mode)" }
+    if name == "pixiewps"      { emit "pixiewps      WPS pixie-dust (offline)" }
+    if name == "dnsmasq"       { emit "dnsmasq       evil-twin DHCP/DNS (needs AP mode)" }
+    if name == "lighttpd"      { emit "lighttpd      captive portal web (needs AP mode)" }
+    if name == "macchanger"    { emit "macchanger    MAC randomization" }
     emit name
 }
 
 func toolRec(name) {
     let path = which(name)
     if path != "" { emit capRec(toolLabel(name), "yes", path) }
-    let hint = "brew install " + toolFormula(name)
-    if toolFormula(name) == "system" { hint = "not present on this macOS build" }
+    let f = toolFormula(name)
+    let hint = "brew install " + f
+    if f == "system" { hint = "built into macOS" }
+    if f == "host"   { hint = "no macOS package - runs on the Linux capture host" }
+    if f == "?"      { hint = "no known package" }
     emit capRec(toolLabel(name), "no", hint)
 }
 
@@ -102,7 +131,7 @@ func permissionCaps() {
 }
 
 func toolCaps() {
-    let names = "tcpdump,networksetup,wdutil,system_profiler,ssh,scp,aircrack-ng,hashcat,hcxpcapngtool,hcxdumptool"
+    let names = "tcpdump,networksetup,wdutil,system_profiler,ssh,scp,aircrack-ng,hashcat,hcxpcapngtool,hcxdumptool,tshark,capinfos,editcap,mergecap,crunch,tmux,ettercap,reaver,wash,pixiewps,dnsmasq,lighttpd,macchanger"
     let caps = ""
     for n in names { caps = lstAdd(caps, toolRec(n)) }
     emit caps

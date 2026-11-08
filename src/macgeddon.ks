@@ -37,8 +37,10 @@ func optValue(name, dflt) {
             if i + 1 < argCount() { emit arg(i + 1) }
             emit dflt
         }
+        // startsWith returns a boolean and is used directly: comparing it
+        // to "1" is always false, which silently killed this branch.
         let pfx = name + "="
-        if startsWith(arg(i), pfx) == "1" {
+        if startsWith(arg(i), pfx) {
             emit substring(arg(i), len(pfx), len(arg(i)))
         }
         i += 1
