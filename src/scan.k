@@ -271,14 +271,14 @@ func printTable(aps) {
         warn("no access points parsed")
         emit "0"
     }
-    kp(apHeader())
+    print(apHeader())
     let i = 1
     for r in aps {
         let a = apFromRec(r)
-        kp(colorGray(padL(i, 3) + ") ") + apLine(a))
+        print(colorGray(padL(i, 3) + ") ") + apLine(a))
         i += 1
     }
-    kp("")
+    print("")
     emit "1"
 }
 
@@ -309,10 +309,10 @@ func scanNow(dev) {
         warn("no wireless networks reported for " + dev)
     }
     if isRoot() == "0" {
-        kp("")
-        kp(colorDim("  macOS has no neighbour-scan command: airport -s went away in 14.4"))
-        kp(colorDim("  and wdutil has no scan. For a live scan with signal data, scan on"))
-        kp(colorDim("  a Linux host, then: macgeddon scan --file scan.txt"))
+        print("")
+        print(colorDim("  macOS has no neighbour-scan command: airport -s went away in 14.4"))
+        print(colorDim("  and wdutil has no scan. For a live scan with signal data, scan on"))
+        print(colorDim("  a Linux host, then: macgeddon scan --file scan.txt"))
     }
     emit aps
 }

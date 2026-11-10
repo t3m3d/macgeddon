@@ -120,58 +120,58 @@ func wifiRadioCap() {
 // printInterfaces(): prints the port table, returns the Wi-Fi device.
 func printInterfaces() {
     banner("interfaces", 78)
-    kp("")
+    print("")
     for r in hardwarePorts() {
         let mark = colorGray("[ -- ]")
         if ifacePort(r) == "Wi-Fi" { mark = colorCyan("[wifi]") }
-        kp("  " + mark + " " + padR(ifaceName(r), 9) + padR(ifacePort(r), 24) + colorGray(ifaceMac(r)))
+        print("  " + mark + " " + padR(ifaceName(r), 9) + padR(ifacePort(r), 24) + colorGray(ifaceMac(r)))
     }
-    kp("")
+    print("")
     let dev = wifiIface()
     if dev == "" {
         warn("no Wi-Fi interface — this Mac has no wireless hardware")
-        kp("")
+        print("")
         emit ""
     }
     let ap = currentAP(dev)
     if ap == "" {
         info(dev + " is not associated with a network")
     } else {
-        kp("  " + colorBold("current network"))
-        kp("")
-        kp("  " + apHeader())
-        kp("  " + apLine(apFromRec(ap)))
-        kp("")
-        kp("  " + colorGray(apNote(apFromRec(ap))))
+        print("  " + colorBold("current network"))
+        print("")
+        print("  " + apHeader())
+        print("  " + apLine(apFromRec(ap)))
+        print("")
+        print("  " + colorGray(apNote(apFromRec(ap))))
     }
-    kp("")
+    print("")
     emit dev
 }
 
 func printRadioVerdict() {
     let dev = wifiIface()
     banner("radio capabilities", 78)
-    kp("")
+    print("")
     if dev == "" {
         bad("no Wi-Fi interface found")
-        kp("")
+        print("")
         emit "0"
     }
     let v = monitorVerdict()
     let why = substring(v, indexOf(v, ":") + 1, len(v))
-    kp("  " + colorBold("interface ") + dev + "   " + colorGray(chip()))
-    kp("")
+    print("  " + colorBold("interface ") + dev + "   " + colorGray(chip()))
+    print("")
     capRender(capRec("monitor mode", "no", why))
     capRender(capRec("frame injection", "no", "no userland 802.11 transmit path"))
     capRender(capRec("associated readout", "yes", "system_profiler SPAirPortDataType"))
     capRender(capRec("neighbour scan", "partial", "cached list from system_profiler; no scan command"))
-    kp("")
-    kp("  " + colorYellow("what still works on this host:"))
-    kp("    - associated-network recon: channel, band, RSSI, security")
-    kp("    - offline handshake/PMKID cracking (aircrack-ng / hashcat)")
-    kp("    - parsing scan and capture files produced on a Linux box")
-    kp("")
-    kp(colorDim("  see `macgeddon capture --explain` for the full story."))
-    kp("")
+    print("")
+    print("  " + colorYellow("what still works on this host:"))
+    print("    - associated-network recon: channel, band, RSSI, security")
+    print("    - offline handshake/PMKID cracking (aircrack-ng / hashcat)")
+    print("    - parsing scan and capture files produced on a Linux box")
+    print("")
+    print(colorDim("  see `macgeddon capture --explain` for the full story."))
+    print("")
     emit "0"
 }

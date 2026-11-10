@@ -11,16 +11,16 @@ module capture
 
 func preflight(dev) {
     banner("capture preflight", 78)
-    kp("")
+    print("")
     if dev == "" {
         bad("no Wi-Fi interface — nothing to capture")
-        kp("")
+        print("")
         emit "0"
     }
     let verdict = monitorVerdict()
     let why = substring(verdict, indexOf(verdict, ":") + 1, len(verdict))
-    kp("  " + colorBold("interface ") + dev + "   " + colorGray(chip()))
-    kp("")
+    print("  " + colorBold("interface ") + dev + "   " + colorGray(chip()))
+    print("")
     capRender(capRec("monitor mode", "no", why))
     capRender(capRec("802.11 injection", "no", "no userland TX path"))
     capRender(capRec("EAPOL deauth/capture", "no", "requires monitor mode"))
@@ -30,17 +30,17 @@ func preflight(dev) {
     } else {
         capRender(capRec("root", "no", "tcpdump needs sudo; macgeddon will print the command"))
     }
-    kp("")
-    kp("  " + colorYellow("verdict: "))
+    print("")
+    print("  " + colorYellow("verdict: "))
     if isAppleSilicon() == "1" {
-        kp("    Apple Silicon Wi-Fi cannot enter monitor mode. Handshake, PMKID,")
-        kp("    deauth and evil-twin capture are not possible on this radio.")
-        kp("    Use a Linux host with an injection-capable adapter for capture,")
-        kp("    then bring the .pcap/.pcapng back here for offline cracking.")
+        print("    Apple Silicon Wi-Fi cannot enter monitor mode. Handshake, PMKID,")
+        print("    deauth and evil-twin capture are not possible on this radio.")
+        print("    Use a Linux host with an injection-capable adapter for capture,")
+        print("    then bring the .pcap/.pcapng back here for offline cracking.")
     } else {
-        kp("    this Mac's radio still exposes no monitor mode via macOS.")
+        print("    this Mac's radio still exposes no monitor mode via macOS.")
     }
-    kp("")
+    print("")
     emit "0"
 }
 
@@ -54,19 +54,19 @@ func managedCommand(dev, out, secs) {
 
 func managedCapture(dev, out, secs) {
     banner("managed-interface capture", 78)
-    kp("")
+    print("")
     info("capturing " + secs + "s of IP traffic on " + dev + " -> " + out)
-    kp(colorDim("  this is a BPF capture: no 802.11 headers, no EAPOL handshake."))
-    kp("")
+    print(colorDim("  this is a BPF capture: no 802.11 headers, no EAPOL handshake."))
+    print("")
     if isRoot() == "0" {
         warn("not root — run this yourself, then re-run macgeddon on the file:")
-        kp("")
-        kp("    " + colorBold(managedCommand(dev, out, secs)))
-        kp("")
+        print("")
+        print("    " + colorBold(managedCommand(dev, out, secs)))
+        print("")
         emit "0"
     }
     let rc = chomp(exec("tcpdump -i " + dev + " -w " + qq(out) + " -G " + secs + " -W 1 2>&1; echo RC=$?"))
-    kp("")
+    print("")
     if isFile(out) == "1" {
         okRow("wrote " + out + " (" + fileSize(out) + " bytes)")
         emit out
@@ -78,14 +78,14 @@ func managedCapture(dev, out, secs) {
 // monitorAttempt: one honest try, with the reason recorded when it fails.
 func monitorAttempt(dev, out, count) {
     banner("monitor-mode attempt", 78)
-    kp("")
+    print("")
     if isRoot() == "0" {
         warn("monitor mode needs root; run this and read the result:")
-        kp("")
-        kp("    " + colorBold("sudo tcpdump -I -i " + dev + " -y IEEE802_11 -c " + count + " -w " + qq(out)))
-        kp("")
-        kp(colorDim("  on Apple Silicon this fails: the driver has no monitor mode."))
-        kp("")
+        print("")
+        print("    " + colorBold("sudo tcpdump -I -i " + dev + " -y IEEE802_11 -c " + count + " -w " + qq(out)))
+        print("")
+        print(colorDim("  on Apple Silicon this fails: the driver has no monitor mode."))
+        print("")
         emit ""
     }
     let log = chomp(exec("tcpdump -I -i " + dev + " -y IEEE802_11 -c " + count + " -w " + qq(out) + " 2>&1; echo RC=$?"))
@@ -94,29 +94,29 @@ func monitorAttempt(dev, out, count) {
         emit out
     }
     bad("monitor mode unavailable")
-    kp(colorDim("  " + log))
-    kp("")
+    print(colorDim("  " + log))
+    print("")
     emit ""
 }
 
 // explain: the same story in one screen, for the menu.
 func explain() {
     banner("why capture is gated", 78)
-    kp("")
-    kp("  airgeddon's core loop is: monitor mode -> airodump-ng -> deauth ->")
-    kp("  capture EAPOL. Every step after the first needs 802.11 frames that")
-    kp("  macOS does not hand to userland.")
-    kp("")
-    kp("  concrete blockers on this host:")
-    kp("    " + colorGray("- Apple Silicon Wi-Fi driver: no monitor-mode ioctl"))
-    kp("    " + colorGray("- no frame injection: deauth can never be transmitted"))
-    kp("    " + colorGray("- `airport` removed in macOS 14.4 (no scan table either)"))
-    kp("    " + colorGray("- `airmon-ng`/`aireplay-ng` are Linux tools: no `iw`/`iwconfig` here"))
-    kp("    " + colorGray("- wdutil has no scan command; `info` needs root"))
-    kp("")
-    kp("  what macgeddon does instead:")
-    kp("    " + colorGreen("1.") + " recon + target metadata from system_profiler")
-    kp("    " + colorGreen("2.") + " offline cracking of handshakes captured elsewhere")
-    kp("    " + colorGreen("3.") + " conversion and hashcat orchestration on this Mac")
-    kp("")
+    print("")
+    print("  airgeddon's core loop is: monitor mode -> airodump-ng -> deauth ->")
+    print("  capture EAPOL. Every step after the first needs 802.11 frames that")
+    print("  macOS does not hand to userland.")
+    print("")
+    print("  concrete blockers on this host:")
+    print("    " + colorGray("- Apple Silicon Wi-Fi driver: no monitor-mode ioctl"))
+    print("    " + colorGray("- no frame injection: deauth can never be transmitted"))
+    print("    " + colorGray("- `airport` removed in macOS 14.4 (no scan table either)"))
+    print("    " + colorGray("- `airmon-ng`/`aireplay-ng` are Linux tools: no `iw`/`iwconfig` here"))
+    print("    " + colorGray("- wdutil has no scan command; `info` needs root"))
+    print("")
+    print("  what macgeddon does instead:")
+    print("    " + colorGreen("1.") + " recon + target metadata from system_profiler")
+    print("    " + colorGreen("2.") + " offline cracking of handshakes captured elsewhere")
+    print("    " + colorGreen("3.") + " conversion and hashcat orchestration on this Mac")
+    print("")
 }

@@ -9,19 +9,19 @@ module test_macgeddon
 
 func check(name, got, want) {
     if got == want {
-        kp(colorGreen("  pass  ") + name)
+        print(colorGreen("  pass  ") + name)
         emit "0"
     }
-    kp(colorRed("  FAIL  ") + name + "   got=[" + got + "] want=[" + want + "]")
+    print(colorRed("  FAIL  ") + name + "   got=[" + got + "] want=[" + want + "]")
     emit "1"
 }
 
 func checkHas(name, hay, needle) {
     if indexOf(hay, needle) >= 0 {
-        kp(colorGreen("  pass  ") + name)
+        print(colorGreen("  pass  ") + name)
         emit "0"
     }
-    kp(colorRed("  FAIL  ") + name + "   " + jStr(hay) + " lacks " + jStr(needle))
+    print(colorRed("  FAIL  ") + name + "   " + jStr(hay) + " lacks " + jStr(needle))
     emit "1"
 }
 
@@ -40,7 +40,7 @@ func ap(ssid, bssid, ch, rssi, sec) {
 just run {
     let fails = 0
 
-    kp(colorBold("util — lists, records, splitting"))
+    print(colorBold("util — lists, records, splitting"))
     fails = fails + toInt(check("splitAny count", "" + lstCount(splitAny("a b c", " ")), "3"))
     fails = fails + toInt(check("splitAny order", lstGet(splitAny("a b c", " "), 1), "b"))
     fails = fails + toInt(check("splitAny missing delim", splitAny("abc", ","), "abc"))
@@ -55,7 +55,7 @@ just run {
     fails = fails + toInt(check("padR truncates", padR("abcdef", 3), "abc"))
     fails = fails + toInt(check("jsonEsc quote", jsonEsc("a\"b"), "a\\\"b"))
 
-    kp(colorBold("model — bands, security, notes"))
+    print(colorBold("model — bands, security, notes"))
     fails = fails + toInt(check("bandOf 44", bandOf("44"), "5"))
     fails = fails + toInt(check("bandOf 6", bandOf("6"), "2.4"))
     fails = fails + toInt(check("bandOf 1", bandOf("1"), "2.4"))
@@ -75,14 +75,14 @@ just run {
     fails = fails + toInt(check("securityRank open", securityRank("Open"), "0"))
     fails = fails + toInt(checkHas("apNote wpa2", apNote(AP { ssid: "x", bssid: "y", channel: "1", band: "2.4", rssi: "-1", security: "WPA2", phy: "" }), "handshake"))
 
-    kp(colorBold("scan — field normalisation"))
+    print(colorBold("scan — field normalisation"))
     fails = fails + toInt(check("channelOf", channelOf("44 (5GHz, 80MHz)"), "44"))
     fails = fails + toInt(check("rssiOf", rssiOf("-55 dBm / -92 dBm"), "-55"))
     fails = fails + toInt(check("looksMac yes", looksMac("68:5e:dd:81:79:18"), "1"))
     fails = fails + toInt(check("looksMac no", looksMac("nope"), "0"))
     fails = fails + toInt(check("tokens collapse", "" + lstCount(tokens("a   b")), "2"))
 
-    kp(colorBold("scan — system_profiler fixture"))
+    print(colorBold("scan — system_profiler fixture"))
     let prof = readFile("tests/fixtures/profiler.txt")
     let fromProf = parseProfiler(prof)
     fails = fails + toInt(check("profiler count", "" + lstCount(fromProf), "3"))
@@ -98,7 +98,7 @@ just run {
     fails = fails + toInt(check("real ap kept", recField(lstGet(fromNoise, 0), 0), "Neighbour"))
     fails = fails + toInt(check("parseAPs no loose fallback", "" + lstCount(parseAPs(noise)), "1"))
 
-    kp(colorBold("scan — legacy / loose fixtures"))
+    print(colorBold("scan — legacy / loose fixtures"))
     let fromAirport = parseLoose(readFile("tests/fixtures/airport_s.txt"))
     fails = fails + toInt(check("airport count", "" + lstCount(fromAirport), "3"))
     fails = fails + toInt(check("airport ssid", recField(lstGet(fromAirport, 0), 0), "HarborNet-5G"))
@@ -108,7 +108,7 @@ just run {
     fails = fails + toInt(check("rowlist channel", recField(lstGet(fromRowlist, 1), 2), "6"))
     fails = fails + toInt(check("parseAPs dispatch", "" + lstCount(parseAPs(prof)), "3"))
 
-    kp(colorBold("scan — ordering, dedupe, persistence"))
+    print(colorBold("scan — ordering, dedupe, persistence"))
     let mixed = lstAdd("", ap("weak", "aa:aa:aa:aa:aa:01", "6", "-85", "WPA2"))
     mixed = lstAdd(mixed, ap("strong", "aa:aa:aa:aa:aa:02", "44", "-45", "WPA2"))
     mixed = lstAdd(mixed, ap("mid", "aa:aa:aa:aa:aa:03", "11", "-70", "Open"))
@@ -125,7 +125,7 @@ just run {
     fails = fails + toInt(check("targets bssid kept", recField(lstGet(reloaded, 0), 1), "aa:aa:aa:aa:aa:02"))
     fails = fails + toInt(check("loadTargets missing", loadTargets("/tmp/macgeddon-test/nope.txt"), ""))
 
-    kp(colorBold("report — summaries and JSON"))
+    print(colorBold("report — summaries and JSON"))
     fails = fails + toInt(check("bandSummary", bandSummary(sorted), "2.4GHz:2,5GHz:1"))
     fails = fails + toInt(check("countWhere open", "" + countWhere(sorted, 5, "Open"), "1"))
     fails = fails + toInt(checkHas("targetsJSON ssid", targetsJSON(sorted), "\"ssid\":\"weak\""))
@@ -133,7 +133,7 @@ just run {
     fails = fails + toInt(checkHas("capsJSON", capsJSON(wifiCaps()), "\"frame injection\""))
     fails = fails + toInt(checkHas("capsJSON state", capsJSON(wifiCaps()), "\"state\""))
 
-    kp(colorBold("remote — airgeddon toolchain on a Linux host"))
+    print(colorBold("remote — airgeddon toolchain on a Linux host"))
     fails = fails + toInt(check("monitor name", parseMonitorName("(monitor mode enabled on wlan0mon)"), "wlan0mon"))
     fails = fails + toInt(check("monitor name missing", parseMonitorName("no monitor here"), ""))
     fails = fails + toInt(checkHas("ssh batch mode", sshBase("u@h", "22"), "BatchMode=yes"))
@@ -150,7 +150,7 @@ just run {
     fails = fails + toInt(check("csv rssi", recField(lstGet(csvAps, 2), 4), "-84"))
     fails = fails + toInt(check("csv band", recField(lstGet(csvAps, 0), 3), "5"))
 
-    kp(colorBold("crack — classification and hints"))
+    print(colorBold("crack — classification and hints"))
     fails = fails + toInt(check("kind pcap", artifactKind("a.pcap"), "pcap"))
     fails = fails + toInt(check("kind pcapng", artifactKind("a.pcapng"), "pcapng"))
     fails = fails + toInt(check("kind 22000", artifactKind("a.22000"), "22000"))
@@ -161,13 +161,13 @@ just run {
     fails = fails + toInt(checkHas("aircrackCommand", aircrackCommand("/t/a.cap", "/t/w.txt", "aa:bb"), "aircrack-ng"))
     fails = fails + toInt(checkHas("hashcatCommand", hashcatCommand("/t/a.22000", "/t/w.txt", "", "/t/pot"), "-m 22000"))
 
-    kp("")
+    print("")
     if fails == 0 {
-        kp(colorBold(colorGreen("ALL TESTS PASSED")))
+        print(colorBold(colorGreen("ALL TESTS PASSED")))
     } else {
-        kp(colorBold(colorRed("TESTS FAILED: " + fails)))
+        print(colorBold(colorRed("TESTS FAILED: " + fails)))
     }
-    kp("")
+    print("")
     // Exit status is the gate: scripts/build.sh only trusts it, so a failing
     // assertion must fail the build instead of printing and returning 0.
     if fails > 0 { exit(1) }

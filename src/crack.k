@@ -183,26 +183,26 @@ func maskHint(ssid) {
 
 func doctor() {
     banner("tool doctor", 78)
-    kp("")
+    print("")
     capsRender(toolCaps())
     let missing = brewHint("aircrack-ng,hashcat,hcxpcapngtool,tshark")
-    kp("")
+    print("")
     if missing == "" {
         okRow("offline cracking toolchain complete")
     } else {
         warn("missing formulas")
-        kp("")
-        kp("    " + colorBold("brew install " + replace(missing, ",", " ")))
-        kp("")
-        kp(colorDim("  hashcat on Apple Silicon uses Metal; no extra driver needed."))
+        print("")
+        print("    " + colorBold("brew install " + replace(missing, ",", " ")))
+        print("")
+        print(colorDim("  hashcat on Apple Silicon uses Metal; no extra driver needed."))
     }
-    kp("")
+    print("")
     let wl = defaultWordlists()
     if wl == "" {
         warn("no wordlist found — put rockyou.txt in /usr/local/share/wordlists/")
     } else {
         okRow("wordlists available:")
-        for w in wl { kp("      " + w) }
+        for w in wl { print("      " + w) }
     }
-    kp("")
+    print("")
 }

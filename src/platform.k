@@ -110,7 +110,7 @@ func capRender(c) {
     if state == "yes" { tag = colorGreen("[ ok ]") }
     if state == "partial" { tag = colorYellow("[part]") }
     if state == "no" { tag = colorRed("[ no ]") }
-    kp("  " + tag + " " + padR(capName(c), 54) + colorGray(capDetail(c)))
+    print("  " + tag + " " + padR(capName(c), 54) + colorGray(capDetail(c)))
 }
 
 func capsRender(caps) {
@@ -146,21 +146,21 @@ func allCaps() {
 // ── reporting ─────────────────────────────────────────────────────────
 
 func hostLine() {
-    kp(colorBold("host   ") + hostName() + "  " + colorGray(user()))
-    kp(colorBold("system ") + osName() + " " + osVersion() + " (" + osBuild() + ")  " + chip())
+    print(colorBold("host   ") + hostName() + "  " + colorGray(user()))
+    print(colorBold("system ") + osName() + " " + osVersion() + " (" + osBuild() + ")  " + chip())
 }
 
 func printMatrix(radioCap) {
     banner("macgeddon capability matrix", 82)
-    kp("")
+    print("")
     hostLine()
-    kp("")
+    print("")
     capRender(radioCap)
     capsRender(allCaps())
-    kp("")
-    kp(colorDim("  capture and attack features are gated by what macOS exposes"))
-    kp(colorDim("  to userland; see README.md and `macgeddon capture --explain`."))
-    kp("")
+    print("")
+    print(colorDim("  capture and attack features are gated by what macOS exposes"))
+    print(colorDim("  to userland; see README.md and `macgeddon capture --explain`."))
+    print("")
 }
 
 func minimal() {

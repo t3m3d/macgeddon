@@ -236,21 +236,21 @@ func parseAirodumpCSV(text) {
 
 func remoteCheck(host, port) {
     banner("capture host", 78)
-    kp("")
-    kp("  " + colorBold("host    ") + host + ":" + port)
-    kp("")
+    print("")
+    print("  " + colorBold("host    ") + host + ":" + port)
+    print("")
     capsRender(remoteCaps(host, port))
-    kp("")
+    print("")
     if remoteReady(host, port) == "1" {
         okRow("airgeddon capture toolchain present on the host")
     } else {
         warn("host is missing part of the airgeddon capture toolchain")
-        kp("")
-        kp("    " + colorBold("sudo apt install aircrack-ng hcxtools wireless-tools iw"))
+        print("")
+        print("    " + colorBold("sudo apt install aircrack-ng hcxtools wireless-tools iw"))
     }
-    kp("")
-    kp(colorDim("  env: MACGEDDON_HOST=user@host  MACGEDDON_PORT=22"))
-    kp("")
+    print("")
+    print(colorDim("  env: MACGEDDON_HOST=user@host  MACGEDDON_PORT=22"))
+    print("")
 }
 
 func remoteStartMonitor(host, port, iface) {
@@ -260,22 +260,22 @@ func remoteStartMonitor(host, port, iface) {
     let mon = parseMonitorName(out)
     if mon == "" {
         bad("could not start monitor mode on " + iface)
-        kp(colorDim("  " + out))
+        print(colorDim("  " + out))
     }
     emit mon
 }
 
 func remoteCapture(host, port, iface, bssid, channel, secs, deauth, localOut) {
     banner("remote capture — airgeddon toolchain", 78)
-    kp("")
-    kp("  " + colorBold("host    ") + host + ":" + port)
-    kp("  " + colorBold("iface   ") + iface)
-    kp("")
+    print("")
+    print("  " + colorBold("host    ") + host + ":" + port)
+    print("  " + colorBold("iface   ") + iface)
+    print("")
     if remoteReady(host, port) == "0" {
         bad("capture host lacks airmon-ng / airodump-ng / aireplay-ng")
-        kp("")
-        kp("    " + colorBold("sudo apt install aircrack-ng wireless-tools iw"))
-        kp("")
+        print("")
+        print("    " + colorBold("sudo apt install aircrack-ng wireless-tools iw"))
+        print("")
         emit "0"
     }
     let mon = remoteStartMonitor(host, port, iface)
@@ -295,25 +295,25 @@ func remoteCapture(host, port, iface, bssid, channel, secs, deauth, localOut) {
     info("pull:    " + pull)
     exec(pull)
     exec(remoteStopMonCmd(host, port, mon))
-    kp("")
+    print("")
     if isFile(localOut) == "0" {
         bad("no capture arrived — the host wrote no " + remoteCap)
-        kp("")
+        print("")
         emit "0"
     }
     okRow("capture: " + localOut + " (" + fileSize(localOut) + " bytes)")
-    kp("")
-    kp("  crack it here: " + colorBold("macgeddon crack --cap " + localOut + " --wordlist FILE"))
-    kp("")
+    print("")
+    print("  crack it here: " + colorBold("macgeddon crack --cap " + localOut + " --wordlist FILE"))
+    print("")
     emit localOut
 }
 
 func remoteScan(host, port, iface, secs) {
     banner("remote scan — airodump-ng", 78)
-    kp("")
+    print("")
     if remoteReady(host, port) == "0" {
         bad("capture host lacks airmon-ng / airodump-ng")
-        kp("")
+        print("")
         emit ""
     }
     let mon = remoteStartMonitor(host, port, iface)
@@ -324,6 +324,6 @@ func remoteScan(host, port, iface, secs) {
     exec(cmd)
     exec(remoteStopMonCmd(host, port, mon))
     let csv = chomp(exec(sshBase(host, port) + " " + qq("cat " + base + "-01.csv")))
-    kp("")
+    print("")
     emit parseAirodumpCSV(csv)
 }

@@ -200,10 +200,10 @@ func padL(s, n) {
 func dash(n) { emit repeatCh("-", n) }
 
 func banner(title, width) {
-    kp("")
-    kp(colorBold(colorCyan("+" + dash(width - 2) + "+")))
-    kp(colorBold(colorCyan("| " + padR(title, width - 4) + " |")))
-    kp(colorBold(colorCyan("+" + dash(width - 2) + "+")))
+    print("")
+    print(colorBold(colorCyan("+" + dash(width - 2) + "+")))
+    print(colorBold(colorCyan("| " + padR(title, width - 4) + " |")))
+    print(colorBold(colorCyan("+" + dash(width - 2) + "+")))
 }
 
 // ── colour ────────────────────────────────────────────────────────────
@@ -224,11 +224,11 @@ func colorCyan(s)   { emit color("36", s) }
 func colorGray(s)   { emit color("90", s) }
 
 // ok/bad/warn/info: one-line status rows used all over the UI.
-func okRow(msg)   { kp("  " + colorGreen("[ ok ]") + " " + msg) }
-func bad(msg)  { kp("  " + colorRed("[fail]") + " " + msg) }
-func warn(msg) { kp("  " + colorYellow("[warn]") + " " + msg) }
-func info(msg) { kp("  " + colorCyan("[info]") + " " + msg) }
-func skip(msg) { kp("  " + colorGray("[ -- ]") + " " + colorGray(msg)) }
+func okRow(msg)   { print("  " + colorGreen("[ ok ]") + " " + msg) }
+func bad(msg)  { print("  " + colorRed("[fail]") + " " + msg) }
+func warn(msg) { print("  " + colorYellow("[warn]") + " " + msg) }
+func info(msg) { print("  " + colorCyan("[info]") + " " + msg) }
+func skip(msg) { print("  " + colorGray("[ -- ]") + " " + colorGray(msg)) }
 
 // ── shell / fs ────────────────────────────────────────────────────────
 

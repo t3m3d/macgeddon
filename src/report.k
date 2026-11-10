@@ -121,9 +121,9 @@ func printSummary(list) {
         warn("no targets in session")
         emit "0"
     }
-    kp("  " + colorBold("targets   ") + lstCount(list))
-    kp("  " + colorBold("bands     ") + bandSummary(list))
-    kp("  " + colorBold("security  ") + securitySummary(list))
+    print("  " + colorBold("targets   ") + lstCount(list))
+    print("  " + colorBold("bands     ") + bandSummary(list))
+    print("  " + colorBold("security  ") + securitySummary(list))
     let best = ""
     let bestRssi = -999
     for r in list {
@@ -136,9 +136,9 @@ func printSummary(list) {
         }
     }
     if best != "" {
-        kp("  " + colorBold("strongest ") + recField(best, 0) + " (" + recField(best, 4) + " dBm)")
+        print("  " + colorBold("strongest ") + recField(best, 0) + " (" + recField(best, 4) + " dBm)")
     } else {
-        kp("  " + colorBold("strongest ") + colorDim("unknown — no signal values in this scan"))
+        print("  " + colorBold("strongest ") + colorDim("unknown — no signal values in this scan"))
     }
     emit "1"
 }
@@ -181,28 +181,28 @@ func saveTargetsSession(iface, targets) {
 func printSession() {
     let p = sessionPath()
     banner("session", 78)
-    kp("")
+    print("")
     if isFile(p) == "0" {
         warn("no session yet — run `macgeddon scan` first")
-        kp("")
+        print("")
         emit "0"
     }
-    kp("  " + colorBold("file    ") + p)
-    kp("  " + colorBold("home    ") + homeDir())
-    kp("")
+    print("  " + colorBold("file    ") + p)
+    print("  " + colorBold("home    ") + homeDir())
+    print("")
     let targets = loadTargets(targetsPath())
     printSummary(targets)
-    kp("")
+    print("")
     let arts = inventory(capturesDir())
     if lstCount(arts) > 0 {
-        kp("  " + colorBold("artifacts"))
+        print("  " + colorBold("artifacts"))
         for a in arts {
-            kp("    " + padR(recField(a, 0), 9) + padR(recField(a, 1), 48) + colorGray(recField(a, 2)))
+            print("    " + padR(recField(a, 0), 9) + padR(recField(a, 1), 48) + colorGray(recField(a, 2)))
         }
     } else {
-        kp("  " + colorDim("no captures in " + capturesDir()))
+        print("  " + colorDim("no captures in " + capturesDir()))
     }
-    kp("")
+    print("")
     emit "1"
 }
 
