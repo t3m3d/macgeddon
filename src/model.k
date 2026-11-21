@@ -51,6 +51,9 @@ struct Session {
 // ── AP helpers ────────────────────────────────────────────────────────
 
 func bandOf(channel) {
+    if indexOf(channel, "6GHz") >= 0 || indexOf(channel, "6 GHz") >= 0 { emit "6" }
+    if indexOf(channel, "5GHz") >= 0 || indexOf(channel, "5 GHz") >= 0 { emit "5" }
+    if indexOf(channel, "2GHz") >= 0 || indexOf(channel, "2.4") >= 0 { emit "2.4" }
     let ch = channel
     let i = indexOf(ch, " ")
     if i > 0 { ch = substring(ch, 0, i) }

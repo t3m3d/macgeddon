@@ -62,17 +62,17 @@ func wifiIface() {
 func allIfaces() { emit chomp(exec("ifconfig -l 2>/dev/null")) }
 
 func ifaceActive(dev) {
-    let s = chomp(exec("ifconfig " + dev + " 2>/dev/null | grep -c 'status: active'"))
+    let s = chomp(exec("ifconfig " + qq(dev) + " 2>/dev/null | grep -c 'status: active'"))
     if s == "0" { emit "0" }
     emit "1"
 }
 
-func ifaceIP(dev) { emit chomp(exec("ipconfig getifaddr " + dev + " 2>/dev/null")) }
+func ifaceIP(dev) { emit chomp(exec("ipconfig getifaddr " + qq(dev) + " 2>/dev/null")) }
 
 // ── current network ───────────────────────────────────────────────────
 
 func currentNetwork(dev) {
-    let s = chomp(exec("networksetup -getairportnetwork " + dev + " 2>/dev/null"))
+    let s = chomp(exec("networksetup -getairportnetwork " + qq(dev) + " 2>/dev/null"))
     if startsWith(s, "Current Wi-Fi Network:") {
         emit trimWS(substring(s, 24, len(s)))
     }
@@ -97,11 +97,7 @@ func currentAP(dev) {
 func monitorVerdict() {
     let dev = wifiIface()
     if dev == "" { emit "no:no Wi-Fi interface on this Mac" }
-    if isAppleSilicon() == "1" {
-        emit "no:Apple Silicon radio exposes no monitor mode (" + dev + ")"
-    }
-    if isRoot() == "0" { emit "partial:needs sudo to probe monitor support on " + dev }
-    emit "no:macOS exposes no monitor mode to userland (" + dev + ")"
+    emit "no:monitor capture and injection are not implemented in this native build (" + dev + ")"
 }
 
 func wifiRadioCap() {
@@ -112,7 +108,7 @@ func wifiRadioCap() {
     if startsWith(v, "partial") { state = "partial" }
     if startsWith(v, "yes") { state = "yes" }
     let why = substring(v, indexOf(v, ":") + 1, len(v))
-    emit capRec("Wi-Fi " + dev + " (" + ifacePort(ifaceRec(dev)) + ")", state, why)
+    emit capRec("Wi-Fi " + qq(dev) + " (" + ifacePort(ifaceRec(dev)) + ")", state, why)
 }
 
 // ── status pages ──────────────────────────────────────────────────────
@@ -159,7 +155,7 @@ func printRadioVerdict() {
     }
     let v = monitorVerdict()
     let why = substring(v, indexOf(v, ":") + 1, len(v))
-    print("  " + colorBold("interface ") + dev + "   " + colorGray(chip()))
+    print("  " + colorBold("interface ") + qq(dev) + "   " + colorGray(chip()))
     print("")
     capRender(capRec("monitor mode", "no", why))
     capRender(capRec("frame injection", "no", "no userland 802.11 transmit path"))

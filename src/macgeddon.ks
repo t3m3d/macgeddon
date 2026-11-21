@@ -14,6 +14,66 @@
 
 module macgeddon
 
+// CLI validation runs before any file, shell, or radio action.
+func cliError(message) {
+    printErr("macgeddon: " + message)
+    exit(2)
+}
+
+func optionIn(list, value) {
+    for item in list { if item == value { emit "1" } }
+    emit "0"
+}
+
+func positiveCount(value, limit) {
+    if value == "" || len(value) > 6 { emit "0" }
+    let i = 0
+    while i < len(value) {
+        let c = codeAt(value, i)
+        if c < 48 || c > 57 { emit "0" }
+        i += 1
+    }
+    if toInt(value) < 1 || toInt(value) > limit { emit "0" }
+    emit "1"
+}
+
+func validateArgs() {
+    if argCount() == 0 { emit "0" }
+    let command = arg(0)
+    let flags = ""
+    let values = ""
+    if command == "scan" { flags = "--save" values = "--file,--iface" }
+    else if command == "capture" { flags = "--explain,--monitor" values = "--iface,--out,--secs,--count" }
+    else if command == "crack" { values = "--cap,--hash,--wordlist,--mask,--bssid,--convert,--out" }
+    else if command == "report" { values = "--out" }
+    else if optionIn("status,caps,ifaces,doctor,menu,help,--help,-h,version,--version", command) != "1" {
+        cliError("unknown command: " + command)
+    }
+    let i = 1
+    while i < argCount() {
+        let raw = arg(i)
+        let name = raw
+        let value = ""
+        let eq = indexOf(raw, "=")
+        if eq >= 0 { name = substring(raw, 0, eq) value = substring(raw, eq + 1, len(raw)) }
+        if optionIn(flags, name) == "1" {
+            if eq >= 0 { cliError("flag takes no value: " + name) }
+        } else if optionIn(values, name) == "1" {
+            if eq < 0 {
+                i += 1
+                if i >= argCount() { cliError("missing value for " + name) }
+                value = arg(i)
+            }
+            if value == "" || startsWith(value, "--") { cliError("missing value for " + name) }
+            if name == "--secs" || name == "--count" {
+                if positiveCount(value, 3600) != "1" { cliError(name + " must be an integer from 1 to 3600") }
+            }
+        } else { cliError("unsupported option for " + command + ": " + name) }
+        i += 1
+    }
+    emit "0"
+}
+
 // ── argument helpers ──────────────────────────────────────────────────
 
 func argAt(i) {
@@ -69,11 +129,9 @@ func help() {
     print("    ifaces                 hardware port table")
     print("    scan                   read the associated network (system_profiler)")
     print("    scan --file FILE       parse a saved scan (row list / airport / profiler)")
-    print("    scan --host HOST       airodump-ng scan on a Linux capture host")
     print("    scan --save            store parsed targets in the session")
     print("")
     print("  " + colorBold("capture"))
-    print("    capture --host HOST    airmon-ng + airodump-ng on a Linux host, pulled back")
     print("    capture --explain      why monitor mode is unavailable on this Mac")
     print("    capture --secs N       BPF capture on the managed interface")
     print("    capture --monitor      one honest monitor-mode attempt")
@@ -86,7 +144,6 @@ func help() {
     print("    doctor                 toolchain status + install hints")
     print("")
     print("  " + colorBold("other"))
-    print("    host --check HOST      verify the airgeddon toolchain on a Linux host")
     print("    menu                   interactive menu (airgeddon style)")
     print("    version | help")
     print("")
@@ -103,7 +160,7 @@ func cmdStatus() {
     hostLine()
     print("")
     let dev = printInterfaces()
-    if dev == "" { emit "0" }
+    if dev == "" { emit "3" }
     let v = monitorVerdict()
     print("  " + colorBold("radio   ") + substring(v, indexOf(v, ":") + 1, len(v)))
     print("")
@@ -129,31 +186,17 @@ func cmdScan() {
     print("")
     let dev = optDev()
     let aps = ""
-    let rhost = optValue("--host", remoteHost())
-    if rhost != "" && file == "" {
-        aps = remoteScan(rhost, optValue("--port", remotePort()), optValue("--riface", "wlan0"), optValue("--secs", "20"))
-        aps = dedupe(aps)
-        aps = sortByRssi(aps)
-        print("")
-        if printTable(aps) == "0" { emit "0" }
-        if hasFlag("--save") == "1" {
-            let p = saveTargetsSession(rhost, aps)
-            okRow("session saved: " + p)
-        }
-        print("")
-        emit "0"
-    }
     if file != "" {
         if isFile(file) == "0" {
             bad("no such file: " + file)
-            emit "0"
+            emit "3"
         }
         info("parsing " + file)
         aps = parseAPs(readFile(file))
     } else {
         if dev == "" {
             bad("no Wi-Fi interface found")
-            emit "0"
+            emit "3"
         }
         aps = scanNow(dev)
     }
@@ -174,42 +217,17 @@ func cmdScan() {
 // ── capture commands ──────────────────────────────────────────────────
 
 func cmdCapture() {
-    let dev = optDev()
     if hasFlag("--explain") == "1" { explain() emit "0" }
+    let dev = optDev()
+    if dev == "" { bad("no Wi-Fi interface found") emit "3" }
     if hasFlag("--monitor") == "1" {
-        let mout = optValue("--out", capturesDir() + "/mon-" + stamp() + ".pcap")
-        monitorAttempt(dev, mout, optValue("--count", "32"))
-        emit "0"
-    }
-    let rhost = optValue("--host", remoteHost())
-    if rhost != "" {
-        let out = optValue("--out", defaultCaptureName())
-        remoteCapture(rhost, optValue("--port", remotePort()), optValue("--riface", "wlan0"),
-                      optValue("--bssid", ""), optValue("--channel", ""),
-                      optValue("--secs", "30"), optValue("--deauth", ""), out)
-        emit "0"
+        explain()
+        bad("monitor capture is not supported by this native build")
+        emit "3"
     }
     preflight(dev)
     let out = optValue("--out", defaultCaptureName())
-    managedCapture(dev, out, optValue("--secs", "30"))
-    emit "0"
-}
-
-// ── capture host ──────────────────────────────────────────────────────
-
-func cmdHost() {
-    let host = optValue("--host", remoteHost())
-    if host == "" {
-        banner("capture host", 78)
-        print("")
-        bad("no host given")
-        print("")
-        print("    macgeddon host --check user@linux-box")
-        print("    MACGEDDON_HOST=user@linux-box macgeddon scan")
-        print("")
-        emit "0"
-    }
-    remoteCheck(host, optValue("--port", remotePort()))
+    if managedCapture(dev, out, optValue("--secs", "30")) == "" { emit "3" }
     emit "0"
 }
 
@@ -222,7 +240,7 @@ func cmdCrack() {
     let convert = optValue("--convert", "")
     if convert != "" {
         let dst = optValue("--out", convert + ".22000")
-        convertTo22000(convert, dst)
+        if convertTo22000(convert, dst) == "" { emit "3" }
         print("")
         emit "0"
     }
@@ -237,13 +255,13 @@ func cmdCrack() {
         bad("nothing to crack — pass --cap FILE or --hash FILE")
         print("")
         doctor()
-        emit "0"
+        emit "2"
     }
-    if wl == "" {
+    if wl == "" && optValue("--mask", "") == "" {
         bad("no wordlist — pass --wordlist FILE")
         print("")
         doctor()
-        emit "0"
+        emit "2"
     }
     info("wordlist: " + wl)
     print("")
@@ -267,8 +285,10 @@ func cmdCrack() {
         bad(key)
         print("")
         doctor()
+        emit "3"
     }
     print("")
+    if state == "exhausted" { emit "1" }
     emit "0"
 }
 
@@ -322,14 +342,8 @@ func menu() {
         }
         if choice == "5" { explain() }
         if choice == "6" {
-            let rhost = remoteHost()
-            if rhost != "" {
-                remoteCapture(rhost, remotePort(), optValue("--riface", "wlan0"), "", "", "30", "", defaultCaptureName())
-            } else {
-                preflight(dev)
-                print(colorDim("  set MACGEDDON_HOST=user@linux-box to capture on a Linux host"))
-                print("")
-            }
+            preflight(dev)
+            print("  Use capture --secs N from the terminal for managed-interface capture.")
         }
         if choice == "7" {
             let wl = defaultWordlists()
@@ -356,19 +370,19 @@ func menu() {
 // ── entry ─────────────────────────────────────────────────────────────
 
 func main() {
+    validateArgs()
     let cmd = argAt(0)
     if cmd == "" { menu() emit "0" }
     if cmd == "help" || cmd == "--help" || cmd == "-h" { help() emit "0" }
     if cmd == "version" || cmd == "--version" { print("macgeddon " + version()) emit "0" }
-    if cmd == "status"  { cmdStatus()  emit "0" }
-    if cmd == "caps"    { cmdCaps()    emit "0" }
-    if cmd == "ifaces"  { cmdIfaces()  emit "0" }
-    if cmd == "scan"    { cmdScan()    emit "0" }
-    if cmd == "capture" { cmdCapture() emit "0" }
-    if cmd == "crack"   { cmdCrack()   emit "0" }
-    if cmd == "report"  { cmdReport()  emit "0" }
-    if cmd == "host"    { cmdHost()    emit "0" }
-    if cmd == "doctor"  { cmdDoctor()  emit "0" }
+    if cmd == "status"  { emit cmdStatus() }
+    if cmd == "caps"    { emit cmdCaps() }
+    if cmd == "ifaces"  { emit cmdIfaces() }
+    if cmd == "scan"    { emit cmdScan() }
+    if cmd == "capture" { emit cmdCapture() }
+    if cmd == "crack"   { emit cmdCrack() }
+    if cmd == "report"  { emit cmdReport() }
+    if cmd == "doctor"  { emit cmdDoctor() }
     if cmd == "menu"    { menu()       emit "0" }
     bad("unknown command: " + cmd)
     print("")
@@ -377,5 +391,5 @@ func main() {
 }
 
 just run {
-    main()
+    exit(toInt(main()))
 }

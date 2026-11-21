@@ -86,9 +86,10 @@ func convertTo22000(src, dst) {
         bad("no such capture: " + src)
         emit ""
     }
+    if pathExists(dst) == "1" { bad("output exists: " + dst) emit "" }
     info("converting " + src + " -> " + dst)
     let r = runTool("hcxpcapngtool -o " + qq(dst) + " " + qq(src), dst + ".log")
-    if isFile(dst) == "1" {
+    if recField(r, 0) == "0" && isFile(dst) == "1" {
         okRow("wrote " + dst + " (" + fileSize(dst) + " bytes)")
         emit dst
     }
@@ -101,7 +102,7 @@ func convertTo22000(src, dst) {
 // aircrackCommand: CPU path, no conversion needed.
 func aircrackCommand(cap, wordlist, bssid) {
     let cmd = "aircrack-ng -w " + qq(wordlist)
-    if bssid != "" { cmd = cmd + " -b " + bssid }
+    if bssid != "" { cmd = cmd + " -b " + qq(bssid) }
     emit cmd + " " + qq(cap)
 }
 
@@ -124,17 +125,11 @@ func parseAircrack(out) {
 }
 
 func parseHashcat(out) {
-    let ls = textLines(out)
-    let last = ""
-    for l in ls { last = l }
-    if last == "" { emit "" }
-    let c = 0
-    let i = 0
-    while i < len(last) {
-        if codeAt(last, i) == 58 { c = i }
-        i += 1
-    }
-    emit substring(last, c + 1, len(last))
+    // Only hashcat --show --outfile-format 2 output is accepted here.
+    // Preserve punctuation inside a password; diagnostics are never keys.
+    let value = trimWS(out)
+    if indexOf(value, fromCharCode(10)) >= 0 { emit "" }
+    emit value
 }
 
 // crackWith: run aircrack-ng against a pcap, return "<state>,<key>,<log>".
@@ -148,8 +143,11 @@ func crackWith(cap, wordlist, bssid, logDir) {
     let r = runTool(cmd, log)
     let out = readFile(log)
     let key = parseAircrack(out)
-    if key != "" { emit rec("cracked," + cleanField(key) + "," + cleanField(log)) }
-    emit rec("exhausted," + cleanField("key not in " + wordlist) + "," + cleanField(log))
+    if key != "" { emit "cracked" + US() + key + US() + log }
+    if indexOf(out, "Passphrase not in dictionary") >= 0 {
+        emit rec("exhausted," + cleanField("key not in " + wordlist) + "," + cleanField(log))
+    }
+    emit rec("error," + "aircrack-ng failed or capture contains no usable handshake," + cleanField(log))
 }
 
 // crackHash: hashcat equivalent, for .22000 input.
@@ -161,12 +159,21 @@ func crackHash(hash, wordlist, mask, logDir) {
     let cmd = hashcatCommand(hash, wordlist, mask, pot)
     if mask == "" && isFile(wordlist) == "0" { emit rec("error," + "no such wordlist,") }
     info("running: " + cmd)
-    runTool(cmd, log)
-    let out = readFile(log)
-    let key = parseHashcat(out)
-    if key != "" { emit rec("cracked," + cleanField(key) + "," + cleanField(log)) }
-    if isFile(pot) == "1" { emit rec("cracked," + cleanField(readFile(pot)) + "," + cleanField(pot)) }
-    emit rec("exhausted," + cleanField("no match in " + wordlist) + "," + cleanField(log))
+    let result = runTool(cmd, log)
+    let status = recField(result, 0)
+    if status != "0" && status != "1" {
+        emit rec("error," + "hashcat failed; inspect its log," + cleanField(log))
+    }
+    // Query this exact input rather than treating any log line or an old
+    // unrelated potfile entry as a recovered password.
+    let shown = logDir + "/hashcat-show.log"
+    let showResult = runTool("hashcat -m 22000 --show --outfile-format 2 --potfile-path " + qq(pot) + " " + qq(hash), shown)
+    if recField(showResult, 0) != "0" {
+        emit rec("error," + "hashcat result lookup failed," + cleanField(shown))
+    }
+    let key = parseHashcat(readFile(shown))
+    if key != "" { emit "cracked" + US() + key + US() + log }
+    emit rec("exhausted," + "no matching password recovered," + cleanField(log))
 }
 
 // ── helpers surfaced in the UI ────────────────────────────────────────

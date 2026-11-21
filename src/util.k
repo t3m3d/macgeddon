@@ -211,6 +211,7 @@ func banner(title, width) {
 func esc() { emit fromCharCode(27) }
 
 func color(code, s) {
+    if chomp(exec("printenv NO_COLOR")) != "" { emit s }
     emit esc() + "[" + code + "m" + s + esc() + "[0m"
 }
 
@@ -241,7 +242,7 @@ func shRaw(cmd) { emit exec(cmd) }
 // shOk(cmd): "1" when the command exits 0.
 func shOk(cmd) { emit chomp(exec("( " + cmd + " ) >/dev/null 2>&1 && echo 1 || echo 0")) }
 
-func which(name) { emit chomp(exec("command -v " + name + " 2>/dev/null")) }
+func which(name) { emit chomp(exec("command -v " + qq(name) + " 2>/dev/null")) }
 func hasTool(name) {
     if which(name) == "" { emit "0" }
     emit "1"
@@ -251,15 +252,31 @@ func pathExists(p)  { emit shOk("test -e " + qq(p)) }
 func isDir(p)       { emit shOk("test -d " + qq(p)) }
 func isFile(p)      { emit shOk("test -f " + qq(p)) }
 func fileSize(p)    { emit chomp(exec("stat -f%z " + qq(p) + " 2>/dev/null")) }
-func ensureDir(p)   { exec("mkdir -p " + qq(p)) emit "1" }
+func ensureDir(p)   {
+    if shOk("umask 077; mkdir -p " + qq(p)) != "1" {
+        printErr("macgeddon: cannot create directory: " + p)
+        exit(3)
+    }
+    emit "1"
+}
 func listDir(p)     { emit textLines(exec("ls -1 " + qq(p) + " 2>/dev/null")) }
 func readAll(p)     { emit readFile(p) }
-func writeAll(p, t) { writeFile(p, t) emit "1" }
+func writeAll(p, t) {
+    writeFile(p, t)
+    // Installed native backends differ on writeFile return conventions.
+    // Verify the requested bytes rather than inferring success from a code.
+    if isFile(p) != "1" || readFile(p) != t {
+        printErr("macgeddon: cannot write file: " + p)
+        exit(3)
+    }
+    emit "1"
+}
 func rmFile(p)      { exec("rm -f " + qq(p)) emit "1" }
 
-// qq(s): double-quote a shell argument and neutralise embedded quotes.
+// Single-quote shell arguments. Dollar signs, backticks, quotes and newlines
+// are literal data, including paths containing spaces.
 func qq(s) {
-    emit "\"" + replace(s, "\"", "\\\"") + "\""
+    emit "'" + replace(s, "'", "'\"'\"'") + "'"
 }
 
 func nowEpoch() { emit chomp(exec("date +%s")) }
@@ -270,12 +287,20 @@ func hostName() { emit chomp(exec("hostname 2>/dev/null")) }
 // ── JSON ──────────────────────────────────────────────────────────────
 
 func jsonEsc(s) {
-    let t = replace(s, "\\", "\\\\")
-    t = replace(t, "\"", "\\\"")
-    t = replace(t, fromCharCode(10), "\\n")
-    t = replace(t, fromCharCode(13), "")
-    t = replace(t, fromCharCode(9), "\\t")
-    emit t
+    let out = ""
+    let i = 0
+    let hex = "0123456789abcdef"
+    while i < len(s) {
+        let c = chAt(s, i)
+        let value = codeAt(s, i)
+        if value == 34 { out = out + "\\\"" }
+        else if value == 92 { out = out + "\\\\" }
+        else if value < 32 {
+            out = out + "\\u00" + chAt(hex, value / 16) + chAt(hex, value % 16)
+        } else { out = out + c }
+        i += 1
+    }
+    emit out
 }
 
 func jStr(s)  { emit "\"" + jsonEsc(s) + "\"" }

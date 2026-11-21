@@ -126,12 +126,14 @@ func permissionCaps() {
     } else {
         caps = lstAdd(caps, capRec("root privileges", "no", "capture needs sudo; commands are printed"))
     }
-    caps = lstAdd(caps, capRec("Apple Silicon", "yes", chip() + " / " + arch()))
+    let silicon = "no"
+    if isAppleSilicon() == "1" { silicon = "yes" }
+    caps = lstAdd(caps, capRec("Apple Silicon", silicon, chip() + " / " + arch()))
     emit caps
 }
 
 func toolCaps() {
-    let names = "tcpdump,networksetup,wdutil,system_profiler,ssh,scp,aircrack-ng,hashcat,hcxpcapngtool,hcxdumptool,tshark,capinfos,editcap,mergecap,crunch,tmux,ettercap,reaver,wash,pixiewps,dnsmasq,lighttpd,macchanger"
+    let names = "tcpdump,networksetup,wdutil,system_profiler,aircrack-ng,hashcat,hcxpcapngtool,tshark,capinfos,editcap,mergecap"
     let caps = ""
     for n in names { caps = lstAdd(caps, toolRec(n)) }
     emit caps

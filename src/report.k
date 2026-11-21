@@ -159,7 +159,7 @@ func writeSession(iface, targets, artifacts, out) {
     body = body + jStr("targets") + ": " + targetsJSON(targets) + "," + fromCharCode(10)
     body = body + jStr("artifacts") + ": " + artifactsJSON(artifacts) + fromCharCode(10)
     body = body + "}" + fromCharCode(10)
-    writeFile(out, body)
+    writeAll(out, body)
     emit out
 }
 

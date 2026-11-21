@@ -1,110 +1,92 @@
 #!/usr/bin/env kr
-// src/ui.k — macgeddon in Objective-K (Krypton -> AppKit via Choc).
-//
-// No Obj-C, no Swift: the window, buttons and text view are driven by
-// Krypton funcs registered as native UI callbacks. The GUI is a front end
-// to the same compiled CLI, so behaviour can never drift from the terminal
-// tool: it shells out to bin/macgeddon and shows the output.
-//
-// Build: scripts/build.sh builds this to bin/macgeddon-gui.
-// Note: a GUI needs a real window server session; this is not covered by
-// tests/test_macgeddon.k (compile-time proof only).
-
+// Native AppKit front end. The CLI is embedded beside this executable.
 import "k:cocoa"
 
-// The GUI is compiled on its own (not as part of the CLI translation
-// unit), so it cannot use the util.k helpers: everything it needs is
-// defined here. A cross-file call without an import is an unknown-function
-// error, so these helpers are required, not optional.
-func trimEnd(s) {
-    let hi = len(s)
-    while hi > 0 {
-        let c = toInt(charCode(substring(s, hi - 1, hi)))
-        if c == 32 || c == 9 || c == 10 || c == 13 { hi -= 1 } else { break }
-    }
-    emit substring(s, 0, hi)
+func guiQuote(text) {
+    emit "'" + replace(text, "'", "'\"'\"'") + "'"
 }
 
-// getenvFallback is defined before its caller: Krypton resolves calls in
-// one pass, so a forward reference inside the same file fails codegen.
-func getenvFallback(name, dflt) {
-    let v = exec("printenv " + name)
-    let t = trimEnd(v)
-    if t == "" { emit dflt }
-    emit t
-}
-
-// cliPath: the sibling binary produced by scripts/build.sh.
 func cliPath() {
-    emit getenvFallback("MACGEDDON_BIN", "bin/macgeddon")
+    let args = msg(msg(cls("NSProcessInfo"), "processInfo"), "arguments")
+    let executable = msg_1(args, "objectAtIndex:", 0)
+    let dir = msg(executable, "stringByDeletingLastPathComponent")
+    emit nsToStr(msg_1(dir, "stringByAppendingPathComponent:", nsString("macgeddon")))
 }
 
-// runCmd: run a subcommand and return its text for the output pane.
 func runCmd(args) {
-    let out = exec(cliPath() + " " + args + " 2>&1")
-    if out == "" { emit "(no output)" }
+    // Commands are fixed UI actions. A Finder launch need not inherit a
+    // terminal's PATH, working directory, or compiler installation.
+    let out = exec("NO_COLOR=1 PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin " + guiQuote(cliPath()) + " " + args + " 2>&1")
+    if out == "" { emit "The command returned no output." }
     emit out
 }
 
-// ── actions (native callbacks: self, _cmd, sender) ────────────────────
-
-func onStatus(self, cmd, sender) {
-    let pane = cocoaGetAssoc(sender)
-    cocoaSetText(pane, runCmd("status"))
-}
-
-func onCaps(self, cmd, sender) {
-    let pane = cocoaGetAssoc(sender)
-    cocoaSetText(pane, runCmd("caps"))
-}
-
-func onScan(self, cmd, sender) {
-    let pane = cocoaGetAssoc(sender)
-    cocoaSetText(pane, runCmd("scan"))
-}
-
-func onDoctor(self, cmd, sender) {
-    let pane = cocoaGetAssoc(sender)
-    cocoaSetText(pane, runCmd("doctor"))
-}
-
-func onExplain(self, cmd, sender) {
-    let pane = cocoaGetAssoc(sender)
-    cocoaSetText(pane, runCmd("capture --explain"))
-}
-
-// ── window ────────────────────────────────────────────────────────────
+func onStatus(self, cmd, sender) { cocoaTVSetString(cocoaGetAssoc(sender), runCmd("status")) }
+func onCaps(self, cmd, sender) { cocoaTVSetString(cocoaGetAssoc(sender), runCmd("caps")) }
+func onScan(self, cmd, sender) { cocoaTVSetString(cocoaGetAssoc(sender), runCmd("scan")) }
+func onDoctor(self, cmd, sender) { cocoaTVSetString(cocoaGetAssoc(sender), runCmd("doctor")) }
+func onExplain(self, cmd, sender) { cocoaTVSetString(cocoaGetAssoc(sender), runCmd("capture --explain")) }
 
 just run {
-    // Values are computed into locals first: objk lowers a call argument
-    // best when it is a variable, not a nested call.
-    let ver = runCmd("version")
-    let ifc = runCmd("ifaces")
+    let pool = newPool()
+    // A packaging check runnable from any directory without a window server.
+    if argCount() > 0 {
+        if arg(0) == "--smoke-test" {
+            let output = runCmd("version")
+            print(output)
+            if indexOf(output, "macgeddon 0.1.0") < 0 { exit(1) }
+            drainPool(pool)
+            exit(0)
+        }
+    }
     let app = cocoaInit()
-    let win = cocoaWindow(app, "macgeddon " + ver, 820, 520)
-
-    let head = cocoaLabel(win, "recon and offline WPA work for Apple Silicon - capture is gated", 24, 470, 772, 22)
-    let dev = cocoaLabel(win, ifc, 24, 300, 372, 150)
-    let pane = cocoaLabel(win, "press a button", 412, 60, 384, 390)
-
-    let b1 = cocoaButton(win, "status",  24, 20, 110, 30)
-    let b2 = cocoaButton(win, "caps",   142, 20, 110, 30)
-    let b3 = cocoaButton(win, "scan",   260, 20, 110, 30)
-    let b4 = cocoaButton(win, "doctor", 378, 20, 110, 30)
-    let b5 = cocoaButton(win, "why capture is gated", 496, 20, 200, 30)
-
+    let bar = cocoaMenuBar(app)
+    let appMenu = cocoaMenuAdd(bar, "Macgeddon")
+    cocoaMenuItemSel(appMenu, "Quit Macgeddon", "q", "terminate:")
+    let editMenu = cocoaMenuAdd(bar, "Edit")
+    cocoaMenuItemSel(editMenu, "Copy", "c", "copy:")
+    cocoaMenuItemSel(editMenu, "Select All", "a", "selectAll:")
+    let win = cocoaWindow(app, "Macgeddon — Apple Silicon", 940, 620)
+    msg_d2(win, "setMinSize:", 940, 620)
+    cocoaLabel(win, "macOS wireless inventory, saved scans, and offline analysis", 24, 572, 892, 24)
+    let pane = cocoaScrollText(win, 24, 72, 892, 482)
+    msg_1(pane, "setEditable:", 0)
+    msg_1(pane, "setSelectable:", 1)
+    msg_1(pane, "setFont:", msg_d1(cls("NSFont"), "userFixedPitchFontOfSize:", 12))
+    cocoaTVNoWrap(pane)
+    let scroll = msg(pane, "enclosingScrollView")
+    msg_1(scroll, "setHasHorizontalScroller:", 1)
+    let b1 = cocoaButton(win, "Status", 24, 20, 110, 32)
+    let b2 = cocoaButton(win, "Capabilities", 142, 20, 130, 32)
+    let b3 = cocoaButton(win, "Scan", 280, 20, 110, 32)
+    let b4 = cocoaButton(win, "Tool doctor", 398, 20, 130, 32)
+    let b5 = cocoaButton(win, "Capture limits", 536, 20, 150, 32)
     cocoaSetAssoc(b1, pane)
     cocoaSetAssoc(b2, pane)
     cocoaSetAssoc(b3, pane)
     cocoaSetAssoc(b4, pane)
     cocoaSetAssoc(b5, pane)
-
     cocoaOnClick(b1, funcptr(onStatus))
     cocoaOnClick(b2, funcptr(onCaps))
     cocoaOnClick(b3, funcptr(onScan))
     cocoaOnClick(b4, funcptr(onDoctor))
     cocoaOnClick(b5, funcptr(onExplain))
-
+    cocoaTVSetString(pane, "Macgeddon is ready. Choose an action below.\n\nScan reads macOS cached network metadata; it may take several seconds.\nUse the CLI for saved-scan imports, capture, offline analysis, and reports.")
     cocoaShow(win, app)
+    // Opt-in native control check; never triggered by Finder launches.
+    if argCount() > 0 {
+        if arg(0) == "--ui-test" {
+            onStatus(0, 0, b1)
+            let output = nsToStr(msg(pane, "string"))
+            if indexOf(output, "macgeddon 0.1.0") < 0 { exit(1) }
+            onExplain(0, 0, b5)
+            output = nsToStr(msg(pane, "string"))
+            if indexOf(output, "capture is gated") < 0 { exit(1) }
+            msg(win, "close")
+            print("AppKit window, menus, output view, and button callbacks passed")
+            exit(0)
+        }
+    }
     cocoaRun(app)
+    drainPool(pool)
 }

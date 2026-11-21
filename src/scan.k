@@ -108,6 +108,7 @@ func parseAPBlock(block) {
     if endsWithS(head, ":") == "1" { ssid = substring(head, 0, len(head) - 1) }
     let bssid = ""
     let ch = ""
+    let band = "?"
     let sec = ""
     let rssi = ""
     let phy = ""
@@ -120,14 +121,14 @@ func parseAPBlock(block) {
             let k = substring(l, 0, sep)
             let v = substring(l, sep + 2, len(l))
             if k == "BSSID" { bssid = cleanField(v) }
-            if k == "Channel" { ch = channelOf(v) }
+            if k == "Channel" { ch = channelOf(v) band = bandOf(v) }
             if k == "Security" { sec = securityOf(v) }
             if k == "Signal / Noise" { rssi = rssiOf(v) }
             if k == "PHY Mode" { phy = cleanField(v) }
         }
         i += 1
     }
-    emit apRec(AP { ssid: cleanField(ssid), bssid: bssid, channel: ch, band: bandOf(ch), rssi: rssi, security: sec, phy: phy })
+    emit apRec(AP { ssid: cleanField(ssid), bssid: bssid, channel: ch, band: band, rssi: rssi, security: sec, phy: phy })
 }
 
 // isAPRecord(r): a real network carries at least one of BSSID, channel,
@@ -285,7 +286,7 @@ func printTable(aps) {
 func saveTargets(aps, path) {
     let out = ""
     for r in aps { out = out + r + fromCharCode(10) }
-    writeFile(path, out)
+    writeAll(path, out)
     emit path
 }
 
@@ -310,9 +311,8 @@ func scanNow(dev) {
     }
     if isRoot() == "0" {
         print("")
-        print(colorDim("  macOS has no neighbour-scan command: airport -s went away in 14.4"))
-        print(colorDim("  and wdutil has no scan. For a live scan with signal data, scan on"))
-        print(colorDim("  a Linux host, then: macgeddon scan --file scan.txt"))
+        print(colorDim("  This build reads cached macOS metadata, not a fresh radio scan."))
+        print(colorDim("  To import saved results: macgeddon scan --file scan.txt"))
     }
     emit aps
 }

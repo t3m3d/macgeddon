@@ -19,7 +19,7 @@ func preflight(dev) {
     }
     let verdict = monitorVerdict()
     let why = substring(verdict, indexOf(verdict, ":") + 1, len(verdict))
-    print("  " + colorBold("interface ") + dev + "   " + colorGray(chip()))
+    print("  " + colorBold("interface ") + qq(dev) + "   " + colorGray(chip()))
     print("")
     capRender(capRec("monitor mode", "no", why))
     capRender(capRec("802.11 injection", "no", "no userland TX path"))
@@ -32,14 +32,9 @@ func preflight(dev) {
     }
     print("")
     print("  " + colorYellow("verdict: "))
-    if isAppleSilicon() == "1" {
-        print("    Apple Silicon Wi-Fi cannot enter monitor mode. Handshake, PMKID,")
-        print("    deauth and evil-twin capture are not possible on this radio.")
-        print("    Use a Linux host with an injection-capable adapter for capture,")
-        print("    then bring the .pcap/.pcapng back here for offline cracking.")
-    } else {
-        print("    this Mac's radio still exposes no monitor mode via macOS.")
-    }
+    print("    This build supports managed-interface packet capture only.")
+    print("    Monitor capture and frame injection are not implemented.")
+    print("    Privileges alone do not add a supported monitor backend.")
     print("")
     emit "0"
 }
@@ -49,13 +44,13 @@ func preflight(dev) {
 // managedCommand: BPF capture on the managed interface. Useful for
 // traffic analysis, never for WPA handshakes (no 802.11 headers).
 func managedCommand(dev, out, secs) {
-    emit "sudo tcpdump -i " + dev + " -w " + qq(out) + " -G " + secs + " -W 1"
+    emit "sudo macgeddon capture --iface " + qq(dev) + " --out " + qq(out) + " --secs " + qq(secs)
 }
 
 func managedCapture(dev, out, secs) {
     banner("managed-interface capture", 78)
     print("")
-    info("capturing " + secs + "s of IP traffic on " + dev + " -> " + out)
+    info("capturing " + secs + "s of IP traffic on " + qq(dev) + " -> " + out)
     print(colorDim("  this is a BPF capture: no 802.11 headers, no EAPOL handshake."))
     print("")
     if isRoot() == "0" {
@@ -63,11 +58,20 @@ func managedCapture(dev, out, secs) {
         print("")
         print("    " + colorBold(managedCommand(dev, out, secs)))
         print("")
-        emit "0"
+        emit ""
     }
-    let rc = chomp(exec("tcpdump -i " + dev + " -w " + qq(out) + " -G " + secs + " -W 1 2>&1; echo RC=$?"))
-    print("")
     if isFile(out) == "1" {
+        bad("output already exists; choose another --out path")
+        emit ""
+    }
+    // -G rotates only when packets arrive; a separate watchdog supplies an
+    // actual wall-clock bound even on a completely idle interface.
+    let command = "umask 077; tcpdump -U -i " + qq(dev) + " -w " + qq(out)
+    command = command + " & capture_pid=$!; (sleep " + qq(secs) + "; kill -INT \"$capture_pid\" 2>/dev/null) & timer_pid=$!; "
+    command = command + "trap 'kill -INT \"$capture_pid\" 2>/dev/null; kill \"$timer_pid\" 2>/dev/null' EXIT HUP INT TERM; "
+    command = command + "wait \"$capture_pid\"; capture_rc=$?; kill \"$timer_pid\" 2>/dev/null; wait \"$timer_pid\" 2>/dev/null; echo RC=$capture_rc"
+    let rc = chomp(exec(command + " 2>&1"))
+    if indexOf(rc, "RC=0") >= 0 && isFile(out) == "1" {
         okRow("wrote " + out + " (" + fileSize(out) + " bytes)")
         emit out
     }
@@ -82,13 +86,13 @@ func monitorAttempt(dev, out, count) {
     if isRoot() == "0" {
         warn("monitor mode needs root; run this and read the result:")
         print("")
-        print("    " + colorBold("sudo tcpdump -I -i " + dev + " -y IEEE802_11 -c " + count + " -w " + qq(out)))
+        print("    " + colorBold("sudo tcpdump -I -i " + qq(dev) + " -y IEEE802_11 -c " + count + " -w " + qq(out)))
         print("")
         print(colorDim("  on Apple Silicon this fails: the driver has no monitor mode."))
         print("")
         emit ""
     }
-    let log = chomp(exec("tcpdump -I -i " + dev + " -y IEEE802_11 -c " + count + " -w " + qq(out) + " 2>&1; echo RC=$?"))
+    let log = chomp(exec("tcpdump -I -i " + qq(dev) + " -y IEEE802_11 -c " + count + " -w " + qq(out) + " 2>&1; echo RC=$?"))
     if indexOf(log, "RC=0") >= 0 && isFile(out) == "1" {
         okRow("monitor capture succeeded -> " + out)
         emit out
@@ -103,20 +107,15 @@ func monitorAttempt(dev, out, count) {
 func explain() {
     banner("why capture is gated", 78)
     print("")
-    print("  airgeddon's core loop is: monitor mode -> airodump-ng -> deauth ->")
-    print("  capture EAPOL. Every step after the first needs 802.11 frames that")
-    print("  macOS does not hand to userland.")
+    print("  This native macOS build implements bounded managed-interface capture.")
+    print("  It does not implement monitor capture, frame injection, forced")
+    print("  handshake collection, PMKID capture, WPS, or evil-twin workflows.")
     print("")
-    print("  concrete blockers on this host:")
-    print("    " + colorGray("- Apple Silicon Wi-Fi driver: no monitor-mode ioctl"))
-    print("    " + colorGray("- no frame injection: deauth can never be transmitted"))
-    print("    " + colorGray("- `airport` removed in macOS 14.4 (no scan table either)"))
-    print("    " + colorGray("- `airmon-ng`/`aireplay-ng` are Linux tools: no `iw`/`iwconfig` here"))
-    print("    " + colorGray("- wdutil has no scan command; `info` needs root"))
+    print("  Interface capabilities depend on hardware, drivers, and macOS.")
+    print("  An M-series chip name is not a monitor-mode capability probe.")
+    print("  sudo does not supply a backend this application has not implemented.")
     print("")
-    print("  what macgeddon does instead:")
-    print("    " + colorGreen("1.") + " recon + target metadata from system_profiler")
-    print("    " + colorGreen("2.") + " offline cracking of handshakes captured elsewhere")
-    print("    " + colorGreen("3.") + " conversion and hashcat orchestration on this Mac")
+    print("  Use status, scan, saved-scan imports, reports, or offline analysis.")
+    print("  This build neither requires nor connects to a Linux host.")
     print("")
 }
